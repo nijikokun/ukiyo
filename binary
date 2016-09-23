@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+
+const argv = require('argv')
+const args = argv.option([
+  {
+    name: 'entry-point',
+    short: 'e',
+    type: 'string',
+    description: 'SPA Entry Point (defaults to index.html)'
+  },
+  {
+    name: 'port',
+    short: 'p',
+    type: 'integer',
+    description: 'Server port (defaults to 8080)'
+  }
+]).run()
+
+process.env.UKIYO_PORT = args.options.port || 8080
+process.env.UKIYO_ENTRY_POINT = args.options['entry-point'] || 'index.html'
+
+require('./index')

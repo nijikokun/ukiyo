@@ -1,0 +1,35 @@
+{
+  "name": "ukiyo",
+  "version": "1.0.0",
+  "description": "Barebones SPA (Single Page Application) Development Server",
+  "author": "Nijiko Yonskai <nijikokun@gmail.com>",
+  "main": "index.js",
+  "license": "MIT",
+  "bin": "binary",
+  "preferGlobal": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nijikokun/ukiyo.git"
+  },
+  "keywords": [
+    "spa",
+    "single-page",
+    "application",
+    "server",
+    "development",
+    "dev",
+    "environment",
+    "react",
+    "mithril",
+    "angular",
+    "jquery",
+    "index"
+  ],
+  "scripts": {
+    "test": "exit 0"
+  },
+  "dependencies": {
+    "argv": "0.0.2",
+    "mime": "^1.3.4"
+  }
+}
