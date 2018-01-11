@@ -23,7 +23,7 @@ $ npm i ukiyo -g
 ## Usage
 
 ```
-$ ukiyo --port 8080 --entry-point index.html
+$ ukiyo --port=8080 --entry-point=index.html
 ```
 
 ## Documentation
