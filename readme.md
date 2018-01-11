@@ -50,7 +50,7 @@ Use a packager like webpack, gulp, or grunt to build your files :tada:
 
 ## License
 
-[MIT](LICENSE) &copy; 2016 [Nijiko Yonskai](https://nijikokun.com)
+[MIT](LICENSE) &copy; 2016-2018 [Nijiko Yonskai](https://nijikokun.com)
 
 [npm-url]: https://www.npmjs.com/package/ukiyo
 [npm-license]: https://img.shields.io/npm/l/ukiyo.svg?style=flat-square
