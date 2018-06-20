@@ -89,7 +89,7 @@ const handler = (req, res) => {
       } else {
         console.log('[UKIYO]', ipv4, 200, parts.pathname, stat.size, 'b')
 
-        res.writeHead(200, { 'Content-Type': mime.lookup(filePath) })
+        res.writeHead(200, { 'Content-Type': mime.getType(filePath) })
         res.write(data)
       }
 
