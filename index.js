@@ -1,8 +1,9 @@
 const http = require('http')
-const mime = require('mime')
+const mime = require('mime-types')
 const path = require('path')
 const url = require('url')
 const fs = require('fs')
+const pkg = require('./package')
 
 /**
  * Working directory
@@ -21,6 +22,44 @@ const port = process.env.UKIYO_PORT || 8080
  * @type {String}
  */
 const entryPoint = process.env.UKIYO_ENTRY_POINT || 'index.html'
+
+/**
+ * @param {string} topic console[topic]
+ * @param {*} messages ...messages
+ */
+const log = (topic, ...messages) => {
+  messages.unshift('')
+  messages.unshift(`${log.topics[topic]}`)
+  messages.unshift(`[${pkg.name.toUpperCase()}]`)
+
+  return (console[topic] || console.info).apply(console, messages)
+}
+
+/**
+ * Log types
+ */
+log.topics = {
+  info: '✅',
+  warn: '⚠️ ',
+  error: '🚨',
+  issue: '🐛',
+  ignore: '🙈',
+  input: '🔺',
+  output: '🔻',
+  send: '📤',
+  receive: '📥',
+  fetch: '📡',
+  finish: '🏁',
+  launch: '🚀',
+  terminate: '⛔️',
+  spawn: '✨',
+  broadcast: '📣',
+  disk: '💾',
+  timing: '⏱ ',
+  money: '💰',
+  numbers: '🔢',
+  wtf: '👻'
+}
 
 /**
  * Get file path from CWD
@@ -57,12 +96,37 @@ const getClientIPV4Address = req => {
   return ip.length < 15 ? ip : (ip.substr(0, 7) === '::ffff:' ? ip.substr(7) : null)
 }
 
+// Internal Responses
+const internalServerError = (res, err, path) => {
+  res.statusCode = 500
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.write(`
+    <h1>Internal Server Error</h1>
+    <div><pre><code>${err.message}</code></pre></div>
+    <div><pre><code>${err.stack}</code></pre></div>
+    <div><small><em>Powered by ${pkg.name}</em></small></div>
+  `)
+  return res.end()
+}
+
+const notFound = (res, err, path) => {
+  res.statusCode = 404
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.write(`
+    <h1>Not Found</h1>
+    <p>The requested URL <code>${path}</code> was not found on this server.</p>
+    <div><small><em>Powered by ${pkg.name}</em></small></div>
+  `)
+  return res.end()
+}
+
 /**
  * Server request handler
  */
 const handler = (req, res) => {
   let parts = url.parse(req.url)
   let filePath = file(parts.pathname)
+  let {base} = path.parse(filePath)
   let ext = parts.pathname.substring(parts.pathname.indexOf('.'))
   let ipv4 = getClientIPV4Address(req)
   let stat
@@ -77,19 +141,25 @@ const handler = (req, res) => {
   if (stat && stat.isFile()) {
     return fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) {
-        console.error('[UKIYO]', ipv4, 500, parts.pathname, err.message)
-
-        res.writeHead(500, { 'Content-Type': 'text/html' })
-        res.write(`
-          <h1>Internal Server Error</h1>
-          <div><pre><code>${err.message}</code></pre></div>
-          <div><pre><code>${err.stack}</code></pre></div>
-          <div><small><em>Powered by Ukiyo</em></small></div>
-        `)
+        log('error', ipv4, 500, parts.pathname, err.message)
+        return internalServerError(res, err, parts.pathname)
       } else {
-        console.log('[UKIYO]', ipv4, 200, parts.pathname, stat.size, 'b')
+        log('send', ipv4, 200, parts.pathname, stat.size, 'b')
 
-        res.writeHead(200, { 'Content-Type': mime.getType(filePath) })
+        let contentType = mime.contentType(base)
+        let headers = {
+          'Last-Modified': stat.mtime.toUTCString(),
+          'Content-Length': stat.size,
+          'Content-Disposition': contentDisposition(base, {
+            type: 'inline'
+          })
+        }
+
+        if (contentType) {
+          headers['Content-Type'] = contentType
+        }
+        
+        res.writeHead(200, headers)
         res.write(data)
       }
 
@@ -99,25 +169,23 @@ const handler = (req, res) => {
 
   // Missing File
   if (ext && ext.indexOf('/') < 0) {
-    console.log('[UKIYO]', ipv4, 404, parts.pathname)
-    res.writeHead(404)
-    return res.end()
+    log('send', ipv4, 404, parts.pathname)
+    return notFound(res, null, parts.pathname)
   }
 
   // Go back to the entry point
   fs.readFile(entryPoint, (err, data) => {
     if (err) {
-      console.error('[UKIYO]', 'Could not read entry file:', entryPoint)
-      console.error('[UKIYO]', 'Are you sure it exists?')
-      console.log('[UKIYO]', ipv4, 404, parts.pathname)
-      res.writeHead(404)
-      return res.end()
+      log('error', 'Could not read entry file:', entryPoint)
+      log('wtf', 'Are you sure it exists?')
+      log('send', ipv4, 404, parts.pathname)
+      return notFound(res, err, parts.pathname)
     }
 
     let stat = fs.statSync(entryPoint)
-
-    console.log('[UKIYO]', ipv4, 200, entryPoint, stat.size, 'b')
-    res.writeHead(200, { 'Content-Type': 'text/html' })
+    log('send', ipv4, 200, entryPoint, stat.size, 'b')
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.write(data)
     return res.end()
   })
@@ -130,13 +198,21 @@ const handler = (req, res) => {
 const server = http.createServer(handler)
 
 /**
+ * Handle server errors
+ */
+server.on('error', err => {
+  log('terminate', 'Failed to serve:', err.stack)
+  process.exit(1)
+})
+
+/**
  * Initialize server
  */
 fs.readFile(entryPoint, (err, data) => {
   if (err) {
-    console.error('[UKIYO]', 'Could not read entry file:', entryPoint)
-    console.error('[UKIYO]', 'Are you sure it exists?')
-    return
+    log('terminate', 'Could not find entry point:', entryPoint)
+    log('wtf', 'Are you sure it exists?')
+    return process.exit(1)
   }
 
   server.listen(port, err => {
@@ -144,13 +220,13 @@ fs.readFile(entryPoint, (err, data) => {
       let from = port
       let overhead = 1000
       let rand = from + ~~(Math.random() * overhead)
-
-      console.error('[UKIYO]', 'Unable to initialize server on port', port)
-      console.error('[UKIYO]', 'How about a new port?', `ukiyo -p ${rand} -e ${entryPoint}`)
-      return
+      
+      log('terminate', 'Unable to initialize server on port', port)
+      log('wtf', 'How about a new port?', `ukiyo -p ${rand} -e ${entryPoint}`)
+      return process.exit(1)
     }
 
-    console.log('[UKIYO]', `Server can be accessed at the following address:`)
-    console.log('[UKIYO]', ' ', `http://127.0.0.1:${port}`)
+    log('spawn', `${pkg.name} v${pkg.version}`)
+    log('broadcast', `Serving content at:`, `http://127.0.0.1:${port}`)
   })
 })

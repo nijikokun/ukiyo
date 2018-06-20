@@ -30,6 +30,6 @@
   },
   "dependencies": {
     "argv": "0.0.2",
-    "mime": "2.3.1"
+    "mime-types": "2.1.18"
   }
 }
